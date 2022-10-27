@@ -1,43 +1,190 @@
-import { ObjectId } from 'https://deno.land/x/mongo@v0.31.1/mod.ts';
-import database from '../database/connect.ts';
-import { TaskSchema } from '../schema/task.ts';
+import { RouterContext, Status, Bson } from '../deps.ts';
+import { Task } from '../models/task.ts';
+import type { CreateTaskInput, UpdateTaskInput } from '../schema/task.ts';
 
-const Tasks = database.collection<TaskSchema>('tasks');
+const createTaskController = async ({
+  request,
+  response,
+}: RouterContext<string>) => {
+  try {
+    const { title, content, status }: CreateTaskInput = await request.body()
+      .value;
 
-export const createTask = async (name: string, isCompleted: boolean) => {
-  const _id = await Tasks.insertOne({
-    name,
-    isCompleted,
-  });
-  return _id;
-};
+    // 確認 Task 是否已存在
+    const taskExists = await Task.findOne({ title });
+    if (taskExists) {
+      response.status = Status.Conflict;
+      response.body = {
+        status: 'fail',
+        message: 'Task with that title already exists',
+      };
+      return;
+    }
 
-export const getAllTasks = async () => {
-  const allTasks = await Tasks.find({}).toArray();
-  return allTasks;
-};
+    const createdAt = new Date();
+    const updatedAt = createdAt;
 
-export const getTaskById = async (id: string) => {
-  const task = await Tasks.findOne({ _id: new ObjectId(id) });
-  if (!task) {
-    throw new Error(`no task with Id: ${id}`);
+    // 將資料儲存至 database，並取得該 task 的 object_id (unique)
+    const taskId: string | Bson.ObjectId = await Task.insertOne({
+      title,
+      content,
+      status,
+      createdAt,
+      updatedAt,
+    });
+
+    // 判斷是否成功儲存至 database
+    if (!taskId) {
+      response.status = Status.InternalServerError;
+      response.body = { status: 'error', message: 'Error creating user' };
+      return;
+    }
+
+    // 成功，回傳整份 task
+    const task = await Task.findOne({ _id: taskId });
+    response.status = Status.Created;
+    response.body = { status: 'success', data: { task } };
+  } catch (error) {
+    response.status = Status.InternalServerError;
+    response.body = { status: 'error', message: error.message };
+    return;
   }
-  return task;
 };
 
-export const updateTaskById = async (
-  id: string,
-  name: string,
-  isCompleted: boolean
-) => {
-  const task = await Tasks.updateOne(
-    { _id: new ObjectId(id) },
-    { $set: { name: name, isCompleted: isCompleted } }
-  );
-  return task;
+const updateTaskController = async ({
+  params,
+  request,
+  response,
+}: RouterContext<string>) => {
+  try {
+    const payload: UpdateTaskInput['body'] = await request.body().value;
+
+    // 至 database 更新資料，並取得更新的詳細資訊
+    const updatedInfo = await Task.updateOne(
+      { _id: new Bson.ObjectId(params.taskId) },
+      { $set: { ...payload, updatedAt: new Date() } },
+      { ignoreUndefined: true }
+    );
+
+    // 透過比對成功資料的數量，判斷有無找到
+    if (!updatedInfo.matchedCount) {
+      response.status = Status.NotFound;
+      response.body = {
+        status: 'fail',
+        message: 'No task with that Id exists',
+      };
+      return;
+    }
+
+    const updatedTask = await Task.findOne({ _id: updatedInfo.upsertedId });
+
+    response.status = Status.OK;
+    response.body = { status: 'success', data: { task: updatedTask } };
+  } catch (error) {
+    response.status = Status.InternalServerError;
+    response.body = { status: 'error', message: error.message };
+    return;
+  }
 };
 
-export const deleteTask = async (id: string) => {
-  const task = await Tasks.deleteOne({ _id: new ObjectId(id) });
-  return task;
+const getTaskController = async ({
+  params,
+  response,
+}: RouterContext<string>) => {
+  try {
+    const task = await Task.findOne({ _id: new Bson.ObjectId(params.taskId) });
+
+    // 判斷是否有找到 task
+    if (!task) {
+      response.status = Status.NotFound;
+      response.body = {
+        status: 'fail',
+        message: 'No task with that Id exists',
+      };
+      return;
+    }
+
+    response.status = Status.OK;
+    response.body = {
+      status: 'success',
+      data: { task },
+    };
+  } catch (error) {
+    response.status = Status.InternalServerError;
+    response.body = { status: 'error', message: error.message };
+    return;
+  }
+};
+
+const getAllTasksController = async ({
+  request,
+  response,
+}: RouterContext<string>) => {
+  try {
+    // 取得 URL 上的 Query 參數
+    const page = request.url.searchParams.get('page');
+    const limit = request.url.searchParams.get('limit');
+    const intPage = page ? parseInt(page) : 1;
+    const intLimit = limit ? parseInt(limit) : 10;
+    const skip = (intPage - 1) * intLimit;
+    const pipeline = [
+      { $match: {} },
+      {
+        $skip: skip,
+      },
+      {
+        $limit: intLimit,
+      },
+    ];
+
+    // TODO comment for aggregate
+    const cursor = Task.aggregate(pipeline);
+    const cursorTasks = cursor.map((task) => task);
+    const tasks = await cursorTasks;
+
+    response.status = Status.OK;
+    response.body = {
+      status: 'success',
+      results: tasks.length,
+      data: { tasks },
+    };
+  } catch (error) {
+    response.status = Status.InternalServerError;
+    response.body = { status: 'error', message: error.message };
+    return;
+  }
+};
+
+const deleteTaskController = async ({
+  params,
+  response,
+}: RouterContext<string>) => {
+  try {
+    const numberOfTask = await Task.deleteOne({
+      _id: new Bson.ObjectId(params.taskId),
+    });
+
+    // 判斷是否有找到 task
+    if (!numberOfTask) {
+      response.status = Status.NotFound;
+      response.body = {
+        status: 'fail',
+        message: 'No task with that Id exists',
+      };
+      return;
+    }
+    response.status = Status.NoContent;
+  } catch (error) {
+    response.status = Status.InternalServerError;
+    response.body = { status: 'error', message: error.message };
+    return;
+  }
+};
+
+export {
+  createTaskController,
+  updateTaskController,
+  getTaskController,
+  getAllTasksController,
+  deleteTaskController,
 };

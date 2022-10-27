@@ -1,45 +1,33 @@
-import * as bcrypt from 'https://deno.land/x/bcrypt@v0.4.1/mod.ts';
-import { create } from 'https://deno.land/x/djwt@v2.7/mod.ts';
-import database from '../database/connect.ts';
-import { UserSchema } from '../schema/user.ts';
-import { key } from '../utils/apiKey.ts';
+import type { RouterContext } from '../deps.ts';
+import { Status } from '../deps.ts';
+import { User } from '../models/user.ts';
+import omitFields from '../utils/omitfields.ts';
 
-const Users = database.collection<UserSchema>('users');
+// TODO
+const getMeController = async ({ state, response }: RouterContext<string>) => {
+  try {
+    const user = await User.findOne({ _id: state.userId });
 
-export const signup = async (username: string, password: string) => {
-  const salt = await bcrypt.genSalt(8);
-  const hashedPassword = await bcrypt.hash(password, salt);
-  const _id = Users.insertOne({
-    username,
-    password: hashedPassword,
-  });
-  return _id;
-};
+    if (!user) {
+      response.status = Status.Unauthorized;
+      response.body = {
+        status: 'fail',
+        message: 'The user belonging to this token no longer exists',
+      };
+    }
 
-export const signin = async (username: string, password: string) => {
-  const user = await Users.findOne({ username });
-
-  if (!user) {
-    throw new Error(`User ${username} not found`);
-  }
-
-  const confirmPassword = await bcrypt.compare(password, user.password);
-  if (!confirmPassword) {
-    throw new Error('Incorrect password');
-  }
-
-  const payload = {
-    id: user._id,
-    name: username,
-  };
-  const jwt = await create({ alg: 'HS512', typ: 'JWT' }, { payload }, key);
-  if (jwt) {
-    return {
-      userId: user._id,
-      username: user.username,
-      token: jwt,
+    response.status = Status.OK;
+    response.body = {
+      status: 'success',
+      data: {
+        user: omitFields(user, 'password', 'verified'),
+      },
     };
-  } else {
-    throw new Error('Internal server error');
+  } catch (error) {
+    response.status = 500;
+    response.body = { status: 'error', message: error.message };
+    return;
   }
 };
+
+export { getMeController };
