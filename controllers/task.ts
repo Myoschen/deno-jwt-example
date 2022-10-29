@@ -127,6 +127,10 @@ const getAllTasksController = async ({
     const intPage = page ? parseInt(page) : 1;
     const intLimit = limit ? parseInt(limit) : 10;
     const skip = (intPage - 1) * intLimit;
+
+    // $match 特定欄位符合，空 Object 則為全部符合
+    // $skip 跳過指定的數量
+    // $limit 一次最多取出的數量
     const pipeline = [
       { $match: {} },
       {
@@ -137,10 +141,9 @@ const getAllTasksController = async ({
       },
     ];
 
-    // TODO comment for aggregate
+    // 使用 mongodb 的 aggregate 聚合來將符合條件的 task 取出
     const cursor = Task.aggregate(pipeline);
-    const cursorTasks = cursor.map((task) => task);
-    const tasks = await cursorTasks;
+    const tasks = await cursor.toArray();
 
     response.status = Status.OK;
     response.body = {
