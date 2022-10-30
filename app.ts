@@ -1,4 +1,4 @@
-import { Application, Router, oakCors } from './deps.ts';
+import { Application, oakCors } from './deps.ts';
 import config from './config/default.ts';
 import logger from './middlewares/logger.ts';
 import appRouter from './routes/index.ts';
@@ -28,4 +28,4 @@ app.addEventListener('listen', ({ port, secure }) => {
 });
 
 // 監聽指定的 Port
-await app.listen({ port: config.port });
+await app.listen({ port: config.api.port });

@@ -4,7 +4,7 @@ import taskRouter from './task.ts';
 import authRouter from './auth.ts';
 import userRouter from './user.ts';
 
-const version = config.apiVersion;
+const version = config.api.version;
 
 type RouterInfo = {
   prefix: string;

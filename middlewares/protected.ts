@@ -1,8 +1,8 @@
-import { User } from '../models/user.ts';
 import { Bson, Status } from '../deps.ts';
 import type { Context } from '../deps.ts';
-import { verifyJwt } from '../utils/jwt.ts';
 import config from '../config/default.ts';
+import { verifyJwt } from '../utils/jwt.ts';
+import { User } from '../models/user.ts';
 
 const protectedRoute = async (ctx: Context, next: () => Promise<unknown>) => {
   try {
@@ -30,7 +30,7 @@ const protectedRoute = async (ctx: Context, next: () => Promise<unknown>) => {
     }
 
     // 驗證 JWT token 及確認用戶是否存在
-    const decoded = await verifyJwt(token, config.jwtSecret);
+    const decoded = await verifyJwt(token, config.jwt.secret);
     const userExists = await User.findOne({
       _id: new Bson.ObjectId(decoded.sub),
     });

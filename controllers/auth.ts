@@ -1,10 +1,10 @@
 import type { RouterContext } from '../deps.ts';
 import { Bson, Status } from '../deps.ts';
-import type { CreateUserInput, LoginUserInput } from '../schema/user.ts';
+import config from '../config/default.ts';
 import { User } from '../models/user.ts';
+import type { CreateUserInput, LoginUserInput } from '../schema/user.ts';
 import { comparePasswords, hashPassword } from '../utils/password.ts';
 import omitFields from '../utils/omitfields.ts';
-import config from '../config/default.ts';
 import { signJwt } from '../utils/jwt.ts';
 
 const signUpUserController = async ({
@@ -88,14 +88,14 @@ const loginUserController = async ({
     // 創建 JWT token
     const token = await signJwt({
       userId: String(userExists._id),
-      expiresIn: config.jwtExpiresIn,
-      secretKey: config.jwtSecret,
+      expiresIn: config.jwt.expiresIn,
+      secretKey: config.jwt.secret,
     });
 
     // 設置 token 至 cookies
     cookies.set('token', token, {
-      expires: new Date(Date.now() + config.jwtExpiresIn * 60 * 1000),
-      maxAge: config.jwtExpiresIn * 60,
+      expires: new Date(Date.now() + config.jwt.expiresIn * 60 * 1000),
+      maxAge: config.jwt.expiresIn * 60,
       httpOnly: true,
       secure: false,
     });
