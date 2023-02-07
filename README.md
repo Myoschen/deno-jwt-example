@@ -6,7 +6,7 @@ It is a simple example for JWT with Deno.
 
 ### Task
 
-| Method     | URI                   | Description    |
+| Method     | URL                   | Description    |
 | ---------- | --------------------- | -------------- |
 | **GET**    | /api/v1/tasks         | Get all tasks  |
 | **GET**    | /api/v1/tasks/:taskId | Get task by Id |
@@ -16,7 +16,7 @@ It is a simple example for JWT with Deno.
 
 ### Auth
 
-| Method   | URI                   | Description   |
+| Method   | URL                   | Description   |
 | -------- | --------------------- | ------------- |
 | **POST** | /api/v1/auth/register | User register |
 | **POST** | /api/v1/auth/login    | User login    |
@@ -24,7 +24,7 @@ It is a simple example for JWT with Deno.
 
 ### User
 
-| Method  | URI           | Description       |
+| Method  | URL           | Description       |
 | ------- | ------------- | ----------------- |
 | **GET** | /api/v1/users | Get personal data |
 
